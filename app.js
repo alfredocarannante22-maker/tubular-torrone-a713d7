@@ -194,7 +194,7 @@ function renderCalendar() {
 
   grid.innerHTML = html;
   const label = selectedDate === today ? 'Oggi' : formatDateLabel(selectedDate);
-  document.getElementById('events-date-label').textContent = label;
+  document.getElementById('events-date-label').textContent = label + ` [${events.length} totali]`;
   renderEvents();
 }
 
