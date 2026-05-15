@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getDatabase, ref, push, update, remove, onValue, off }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
@@ -42,11 +42,20 @@ const EVENT_COLORS = ['#6366f1','#ef4444','#22c55e','#f59e0b','#3b82f6','#ec4899
 const CATEGORY_ICONS = { casa:'🏠', cibo:'🍕', trasporti:'🚗', salute:'💊', svago:'🎬', abbonamenti:'📱', vestiti:'👕', altro:'📦' };
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
 window.signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
-  try { await signInWithPopup(auth, provider); }
-  catch(e) { showToast('Errore di accesso: ' + e.message); }
+  try {
+    if (isIOS) {
+      await signInWithRedirect(auth, provider);
+    } else {
+      await signInWithPopup(auth, provider);
+    }
+  } catch(e) { showToast('Errore di accesso: ' + e.message); }
 };
+
+getRedirectResult(auth).catch(() => {});
 
 window.signOut = async () => {
   activeRefs.forEach(({ r, fn }) => off(r, 'value', fn));

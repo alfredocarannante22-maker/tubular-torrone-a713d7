@@ -1,4 +1,4 @@
-const CACHE = 'famiglia-v3';
+const CACHE = 'famiglia-v4';
 const ASSETS = ['/', '/index.html', '/styles.css', '/app.js', '/manifest.json'];
 
 self.addEventListener('install', e => {
