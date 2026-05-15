@@ -36,6 +36,8 @@ let expenseFilter = 'all';
 let activeRefs = [];
 let notificationTimers = [];
 
+const ALLOWED_EMAILS = new Set(['alfredocarannante22@gmail.com', 'lorenzavitale22@gmail.com']);
+
 const EVENT_COLORS = ['#6366f1','#ef4444','#22c55e','#f59e0b','#3b82f6','#ec4899','#14b8a6','#f97316'];
 const CATEGORY_ICONS = { casa:'🏠', cibo:'🍕', trasporti:'🚗', salute:'💊', svago:'🎬', abbonamenti:'📱', vestiti:'👕', altro:'📦' };
 
@@ -52,7 +54,12 @@ window.signOut = async () => {
   await fbSignOut(auth);
 };
 
-onAuthStateChanged(auth, user => {
+onAuthStateChanged(auth, async user => {
+  if (user && !ALLOWED_EMAILS.has(user.email)) {
+    await fbSignOut(auth);
+    showToast('Accesso non autorizzato');
+    return;
+  }
   currentUser = user;
   if (user) {
     document.getElementById('auth-screen').style.display = 'none';
