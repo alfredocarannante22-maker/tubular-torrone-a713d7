@@ -51,6 +51,7 @@ window.signInWithGoogle = async () => {
 window.signOut = async () => {
   activeRefs.forEach(({ r, fn }) => off(r, 'value', fn));
   activeRefs = [];
+  listenersActive = false;
   await fbSignOut(auth);
 };
 
@@ -74,8 +75,12 @@ onAuthStateChanged(auth, async user => {
 });
 
 // ─── REALTIME LISTENERS ───────────────────────────────────────────────────────
+let listenersActive = false;
+
 function setupListeners() {
-  // Eventi (condivisi tra tutti gli utenti autenticati)
+  if (listenersActive) return;
+  listenersActive = true;
+
   const evRef = ref(db, 'events');
   const evFn = snap => {
     events = [];
@@ -85,7 +90,7 @@ function setupListeners() {
     renderEvents();
     scheduleNotifications(events);
   };
-  onValue(evRef, evFn);
+  onValue(evRef, evFn, err => showToast('Errore lettura: ' + err.message));
   activeRefs.push({ r: evRef, fn: evFn });
 
   // Note (private per utente)
