@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, onAuthStateChanged }
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 import { getDatabase, ref, push, update, remove, onValue, off }
   from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
@@ -42,20 +42,11 @@ const EVENT_COLORS = ['#6366f1','#ef4444','#22c55e','#f59e0b','#3b82f6','#ec4899
 const CATEGORY_ICONS = { casa:'🏠', cibo:'🍕', trasporti:'🚗', salute:'💊', svago:'🎬', abbonamenti:'📱', vestiti:'👕', altro:'📦' };
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
 window.signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
-  try {
-    if (isIOS) {
-      await signInWithRedirect(auth, provider);
-    } else {
-      await signInWithPopup(auth, provider);
-    }
-  } catch(e) { showToast('Errore di accesso: ' + e.message); }
+  try { await signInWithPopup(auth, provider); }
+  catch(e) { showToast('Errore di accesso: ' + e.message); }
 };
-
-getRedirectResult(auth).catch(() => {});
 
 window.signOut = async () => {
   activeRefs.forEach(({ r, fn }) => off(r, 'value', fn));
@@ -93,7 +84,6 @@ function setupListeners() {
     renderCalendar();
     renderEvents();
     scheduleNotifications(events);
-    alert('DEBUG: ' + events.length + ' eventi. selectedDate=' + selectedDate + '. Primo evento: ' + (events[0] ? events[0].date + ' ' + events[0].title : 'nessuno'));
   };
   onValue(evRef, evFn);
   activeRefs.push({ r: evRef, fn: evFn });
@@ -293,17 +283,15 @@ window.saveEvent = async () => {
     createdByName: currentUser.displayName,
     updatedAt: Date.now()
   };
-  alert('DEBUG save: title=' + data.title + ' date=' + data.date + ' user=' + (currentUser ? currentUser.email : 'NULL'));
   try {
     if (editingEventId) {
       await update(ref(db, `events/${editingEventId}`), data);
     } else {
       await push(ref(db, 'events'), { ...data, createdAt: Date.now() });
     }
-    alert('DEBUG: salvataggio OK');
     closeModal('modal-event');
     showToast(editingEventId ? 'Evento aggiornato' : 'Evento aggiunto');
-  } catch(e) { alert('Errore salvataggio: ' + e.message); }
+  } catch(e) { showToast('Errore: ' + e.message); }
 };
 
 window.deleteEvent = async () => {
