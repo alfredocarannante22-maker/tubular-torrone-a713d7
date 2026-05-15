@@ -84,6 +84,7 @@ function setupListeners() {
     renderCalendar();
     renderEvents();
     scheduleNotifications(events);
+    alert('DEBUG: ' + events.length + ' eventi. selectedDate=' + selectedDate + '. Primo evento: ' + (events[0] ? events[0].date + ' ' + events[0].title : 'nessuno'));
   };
   onValue(evRef, evFn);
   activeRefs.push({ r: evRef, fn: evFn });
