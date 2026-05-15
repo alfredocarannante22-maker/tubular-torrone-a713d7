@@ -34,6 +34,7 @@ let editingNoteId = null;
 let editingExpenseId = null;
 let expenseFilter = 'all';
 let activeRefs = [];
+let notificationTimers = [];
 
 const EVENT_COLORS = ['#6366f1','#ef4444','#22c55e','#f59e0b','#3b82f6','#ec4899','#14b8a6','#f97316'];
 const CATEGORY_ICONS = { casa:'🏠', cibo:'🍕', trasporti:'🚗', salute:'💊', svago:'🎬', abbonamenti:'📱', vestiti:'👕', altro:'📦' };
@@ -75,6 +76,7 @@ function setupListeners() {
     events.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
     renderCalendar();
     renderEvents();
+    scheduleNotifications(events);
   };
   onValue(evRef, evFn);
   activeRefs.push({ r: evRef, fn: evFn });
@@ -158,12 +160,14 @@ function renderCalendar() {
 
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = `${calYear}-${pad(calMonth + 1)}-${pad(d)}`;
-    const dayEvents = events.filter(e => e.date === ds);
+    const dayEvents = events.filter(e => ds >= e.date && ds <= (e.dateEnd || e.date));
     const isToday = ds === today;
     const isSelected = ds === selectedDate;
+    const inRange = !isToday && !isSelected && events.some(e => e.dateEnd && ds > e.date && ds < e.dateEnd);
     let cls = 'cal-day';
     if (isToday) cls += ' today';
     else if (isSelected) cls += ' selected';
+    else if (inRange) cls += ' in-range';
     const dots = dayEvents.slice(0, 3).map(e =>
       `<span class="dot" style="background:${e.color || '#6366f1'}"></span>`).join('');
     html += `<div class="${cls}" onclick="selectDay('${ds}')">${d}<div class="dots">${dots}</div></div>`;
@@ -184,7 +188,8 @@ function renderCalendar() {
 
 function renderEvents() {
   const container = document.getElementById('events-container');
-  const dayEvents = events.filter(e => e.date === selectedDate)
+  const dayEvents = events
+    .filter(e => selectedDate >= e.date && selectedDate <= (e.dateEnd || e.date))
     .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   if (!dayEvents.length) {
     container.innerHTML = `<div class="empty-state"><div class="icon">📅</div><p>Nessun evento per questo giorno</p></div>`;
@@ -197,6 +202,7 @@ function renderEvents() {
           <div class="event-title">${e.title}</div>
           ${e.time ? `<div class="event-time">${e.time}</div>` : ''}
         </div>
+        ${e.dateEnd ? `<div class="event-date-range">📅 ${formatDateLabel(e.date)} → ${formatDateLabel(e.dateEnd)}</div>` : ''}
         ${e.description ? `<div class="event-desc">${e.description}</div>` : ''}
         <div class="event-who">${e.createdByName || ''}</div>
       </div>
@@ -217,15 +223,21 @@ window.openEventModal = (id = null) => {
     if (ev) {
       document.getElementById('event-title-input').value = ev.title;
       document.getElementById('event-date-input').value = ev.date;
+      document.getElementById('event-date-end-input').value = ev.dateEnd || '';
       document.getElementById('event-time-input').value = ev.time || '';
       document.getElementById('event-desc-input').value = ev.description || '';
+      document.getElementById('event-notify24h').checked = !!ev.notify24h;
+      document.getElementById('event-notify12h').checked = !!ev.notify12h;
       picker.querySelector(`[data-color="${ev.color || EVENT_COLORS[0]}"]`)?.classList.add('selected');
     }
   } else {
     document.getElementById('event-title-input').value = '';
     document.getElementById('event-date-input').value = selectedDate;
+    document.getElementById('event-date-end-input').value = '';
     document.getElementById('event-time-input').value = '';
     document.getElementById('event-desc-input').value = '';
+    document.getElementById('event-notify24h').checked = false;
+    document.getElementById('event-notify12h').checked = false;
     picker.querySelector(`[data-color="${EVENT_COLORS[0]}"]`)?.classList.add('selected');
   }
   document.getElementById('modal-event').classList.add('open');
@@ -239,13 +251,27 @@ window.selectColor = (el) => {
 window.saveEvent = async () => {
   const title = document.getElementById('event-title-input').value.trim();
   const date = document.getElementById('event-date-input').value;
+  const dateEnd = document.getElementById('event-date-end-input').value || null;
+  const notify24h = document.getElementById('event-notify24h').checked;
+  const notify12h = document.getElementById('event-notify12h').checked;
   if (!title || !date) { showToast('Titolo e data obbligatori'); return; }
+  if (dateEnd && dateEnd < date) { showToast('La data fine deve essere dopo la data inizio'); return; }
+  if ((notify24h || notify12h) && !document.getElementById('event-time-input').value) {
+    showToast('Aggiungi un orario per abilitare le notifiche'); return;
+  }
+  if (notify24h || notify12h) {
+    const granted = await requestNotificationPermission();
+    if (!granted) { showToast('Permesso notifiche negato dal browser'); return; }
+  }
   const color = document.querySelector('.color-option.selected')?.dataset.color || EVENT_COLORS[0];
   const data = {
     title, date,
+    dateEnd,
     time: document.getElementById('event-time-input').value || null,
     description: document.getElementById('event-desc-input').value.trim() || null,
     color,
+    notify24h,
+    notify12h,
     createdBy: currentUser.uid,
     createdByName: currentUser.displayName,
     updatedAt: Date.now()
@@ -267,6 +293,103 @@ window.deleteEvent = async () => {
   closeModal('modal-event');
   showToast('Evento eliminato');
 };
+
+// ─── NOTIFICHE ────────────────────────────────────────────────────────────────
+async function requestNotificationPermission() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') return true;
+  return (await Notification.requestPermission()) === 'granted';
+}
+
+function scheduleNotifications(evList) {
+  notificationTimers.forEach(t => clearTimeout(t));
+  notificationTimers = [];
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = Date.now();
+  evList.forEach(ev => {
+    if (!ev.time || (!ev.notify24h && !ev.notify12h)) return;
+    const [y, m, d] = ev.date.split('-').map(Number);
+    const [h, min] = ev.time.split(':').map(Number);
+    const eventTime = new Date(y, m - 1, d, h, min).getTime();
+    const schedule = (offset, body) => {
+      const delay = eventTime - offset - now;
+      if (delay > 0 && delay < 8 * 24 * 3600000) {
+        notificationTimers.push(setTimeout(() => {
+          new Notification(`📅 ${ev.title}`, { body, icon: '/icons/icon-192.png', tag: `ev-${ev.id}-${offset}` });
+        }, delay));
+      }
+    };
+    if (ev.notify24h) schedule(24 * 3600000, `Domani alle ${ev.time}`);
+    if (ev.notify12h) schedule(12 * 3600000, `Oggi alle ${ev.time} (tra 12 ore)`);
+  });
+}
+
+// ─── IMPORT ICS ───────────────────────────────────────────────────────────────
+window.importICS = () => document.getElementById('ics-file-input').click();
+
+document.getElementById('ics-file-input').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const imported = parseICS(text);
+  if (!imported.length) { showToast('Nessun evento trovato nel file'); return; }
+  let count = 0;
+  for (const ev of imported) {
+    try {
+      await push(ref(db, 'events'), { ...ev, createdBy: currentUser.uid, createdByName: currentUser.displayName, createdAt: Date.now(), updatedAt: Date.now() });
+      count++;
+    } catch (_) {}
+  }
+  showToast(`${count} eventi importati`);
+  e.target.value = '';
+});
+
+function parseICS(text) {
+  const result = [];
+  const unfolded = text.replace(/\r?\n[ \t]/g, '');
+  const lines = unfolded.split(/\r?\n/);
+  let cur = null;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (line === 'BEGIN:VEVENT') { cur = {}; continue; }
+    if (line === 'END:VEVENT') {
+      if (cur?.title && cur?.date) result.push(cur);
+      cur = null; continue;
+    }
+    if (!cur) continue;
+    const ci = line.indexOf(':');
+    if (ci === -1) continue;
+    const key = line.slice(0, ci).split(';')[0].toUpperCase();
+    const val = line.slice(ci + 1);
+    if (key === 'SUMMARY') {
+      cur.title = val.replace(/\\n/g, ' ').replace(/\\,/g, ',').trim();
+    } else if (key === 'DTSTART') {
+      cur.date = icsDate(val); cur.time = icsTime(val);
+    } else if (key === 'DTEND') {
+      let end = icsDate(val);
+      if (!val.includes('T')) {
+        const d = new Date(end + 'T00:00:00');
+        d.setDate(d.getDate() - 1);
+        end = toDateStr(d);
+      }
+      if (end !== cur.date) cur.dateEnd = end;
+    } else if (key === 'DESCRIPTION') {
+      cur.description = val.replace(/\\n/g, ' ').replace(/\\,/g, ',').trim() || null;
+    }
+  }
+  return result;
+}
+
+function icsDate(val) {
+  const s = val.split('T')[0].replace(/\D/g, '');
+  return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
+}
+
+function icsTime(val) {
+  if (!val.includes('T')) return null;
+  const t = val.split('T')[1].replace(/\D/g, '');
+  return `${t.slice(0,2)}:${t.slice(2,4)}`;
+}
 
 // ─── NOTE ─────────────────────────────────────────────────────────────────────
 function renderNotes() {

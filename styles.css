@@ -233,6 +233,7 @@ section.active { display: block; }
 .cal-day.other-month { color: var(--muted); }
 .cal-day.today { background: var(--primary); color: white; font-weight: 700; }
 .cal-day.selected { background: var(--primary-dark); color: white; }
+.cal-day.in-range { background: #e0e7ff; color: var(--primary); }
 .cal-day .dots { display: flex; gap: 2px; margin-top: 2px; }
 .cal-day .dot { width: 5px; height: 5px; border-radius: 50%; }
 
@@ -254,6 +255,7 @@ section.active { display: block; }
 .event-item .event-color-bar { display: none; }
 .event-time { font-size: 12px; color: var(--muted); font-weight: 600; white-space: nowrap; }
 .event-title { font-size: 15px; font-weight: 600; }
+.event-date-range { font-size: 12px; color: var(--primary); margin-top: 3px; font-weight: 500; }
 .event-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
 .event-who { font-size: 11px; color: var(--primary); margin-top: 4px; font-weight: 600; }
 
@@ -381,3 +383,24 @@ section.active { display: block; }
 }
 .profile-name { text-align: center; font-size: 18px; font-weight: 700; }
 .profile-email { text-align: center; color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+/* NOTIFY TOGGLES */
+.notify-options { display: flex; flex-direction: column; gap: 10px; }
+.notify-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; color: var(--text); }
+.notify-toggle input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer; }
+
+/* IMPORT BAR */
+.import-bar { margin-bottom: 12px; }
+.btn-import {
+  width: 100%;
+  padding: 10px 16px;
+  background: white;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--primary);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.btn-import:active { background: var(--bg); }

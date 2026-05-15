@@ -38,6 +38,10 @@
 
   <!-- CALENDARIO -->
   <section id="section-calendar" class="active">
+    <div class="import-bar">
+      <button class="btn-import" onclick="importICS()">📥 Importa da TimeTree (.ics)</button>
+      <input type="file" id="ics-file-input" accept=".ics" style="display:none">
+    </div>
     <div class="card">
       <div class="calendar-header">
         <button class="cal-nav" onclick="changeMonth(-1)">‹</button>
@@ -112,6 +116,10 @@
       <input type="date" id="event-date-input">
     </div>
     <div class="form-group">
+      <label>Data fine (opzionale)</label>
+      <input type="date" id="event-date-end-input">
+    </div>
+    <div class="form-group">
       <label>Orario (opzionale)</label>
       <input type="time" id="event-time-input">
     </div>
@@ -122,6 +130,19 @@
     <div class="form-group">
       <label>Colore</label>
       <div class="color-picker" id="event-color-picker"></div>
+    </div>
+    <div class="form-group">
+      <label>Notifiche</label>
+      <div class="notify-options">
+        <label class="notify-toggle">
+          <input type="checkbox" id="event-notify24h">
+          <span>Avvisami 24 ore prima</span>
+        </label>
+        <label class="notify-toggle">
+          <input type="checkbox" id="event-notify12h">
+          <span>Avvisami 12 ore prima</span>
+        </label>
+      </div>
     </div>
     <button class="btn btn-primary" onclick="saveEvent()" style="margin-bottom:10px">Salva</button>
     <button class="btn btn-secondary" id="delete-event-btn" onclick="deleteEvent()" style="display:none; margin-bottom:10px">Elimina</button>
