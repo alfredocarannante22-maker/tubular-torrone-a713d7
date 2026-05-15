@@ -284,12 +284,14 @@ window.saveEvent = async () => {
     createdByName: currentUser.displayName,
     updatedAt: Date.now()
   };
+  alert('DEBUG save: title=' + data.title + ' date=' + data.date + ' user=' + (currentUser ? currentUser.email : 'NULL'));
   try {
     if (editingEventId) {
       await update(ref(db, `events/${editingEventId}`), data);
     } else {
       await push(ref(db, 'events'), { ...data, createdAt: Date.now() });
     }
+    alert('DEBUG: salvataggio OK');
     closeModal('modal-event');
     showToast(editingEventId ? 'Evento aggiornato' : 'Evento aggiunto');
   } catch(e) { alert('Errore salvataggio: ' + e.message); }
