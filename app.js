@@ -291,7 +291,7 @@ window.saveEvent = async () => {
     }
     closeModal('modal-event');
     showToast(editingEventId ? 'Evento aggiornato' : 'Evento aggiunto');
-  } catch(e) { showToast('Errore: ' + e.message); }
+  } catch(e) { alert('Errore salvataggio: ' + e.message); }
 };
 
 window.deleteEvent = async () => {
